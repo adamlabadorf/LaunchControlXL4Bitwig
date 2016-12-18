@@ -2,11 +2,7 @@ loadAPI(1);
 
 host.defineController("Novation","LaunchControlXL","1.0",
                       "d9185a20-c531-11e6-9598-0800200c9a66");
-host.defineMidiPorts(1,1);
-
-function mapEvent(status,data1,data2) {
-        
-}
+host.defineMidiPorts(1,0);
 
 function closure(i,f) {
     return function(value) { f(i,value) }
@@ -15,6 +11,9 @@ function closure(i,f) {
 var NUM_TRACKS=8,
     NUM_SENDS=2,
     NUM_SCENES=0,
+    MIDI_ON=0,
+    MIDI_OFF=1,
+    MIDI_CNTL=3,
     CNTL_SEND_A=0,
     CNTL_SEND_B=1,
     CNTL_PAN=2,
@@ -24,6 +23,8 @@ var NUM_TRACKS=8,
 
 function init()
 {
+
+    println("init");
     // create an object that will help map surface controls
     // to the appropriate track
     // channelGroup is the high level groups (note on, note off, etc)
@@ -50,7 +51,7 @@ function init()
     // 49-56 - pan, control type id = 2
     // 77-84 - sliders, control type id = 3
     var starts = [13,29,49,77];
-    cntl = trackMap[3] = {}
+    cntl = trackMap[MIDI_CNTL] = {}
     for(var i=0; i < starts.length; i++) {
         start = starts[i];
         for(var j=0; j < NUM_TRACKS; j++) {
@@ -62,28 +63,18 @@ function init()
     // 41-60 - id:4 track focus
     // 73-92 - id:5 track control
     var starts = [41,73];
-    noteon = trackMap[0] = {};
-    noteoff = trackMap[1] = {};
+    noteon = trackMap[MIDI_ON] = {};
+    noteoff = trackMap[MIDI_OFF] = {};
     for(var i=0; i < starts.length; i++) {
         start = starts[i];
         for(var j=0; j < NUM_TRACKS; j++) {
-            noteon[start+j] = noteoff[start+j] = {controlTypeId:i+4,trackId:j};
+            noteon[start+j] = {controlTypeId:CNTL_FOCUS,trackId:j};
+            noteoff[start+j] = {controlTypeId:CNTL_CONTROL,trackId:j};
         }
     }
-    /*
-    for (var key in controllerRangeStarts) {
-        trackMap[key] = {}
-        for(var i in controllerRangeStarts[key]) {
-            start = controllerRangeStarts[key][i];
-            //println(start);
-            for(var j=0; j < NUM_TRACKS; j++) {
-                trackMap[key][start+j] = j;
-                //println("mapping " + (start+j) + " to track " + j);
-            }
-        }
-    }
-    */
 
+    transport = host.createTransport();
+    userControls = host.createUserControls(8);
     trackBank = host.createTrackBank(NUM_TRACKS, NUM_SENDS, NUM_SCENES);
     /*
     for(var t=0; t<NUM_TRACKS; t++) {
@@ -95,9 +86,6 @@ function init()
         )
     }
     */
-
-    //transport = host.createTransport();
-    //userControls = host.createUserControls(8);
 
     host.getMidiInPort(0).setMidiCallback(onMidi);
 }
@@ -116,15 +104,15 @@ function onMidi(status, data1, data2) {
     println("channelGroup: " + statusProps.channelGroup);
     println("channelId: " + statusProps.channelId);
 
-    println("controlTypeId: " + track.controlTypeId)
-    println("trackId: " + track.trackId)
+    println("controlTypeId: " + trackProps.controlTypeId)
+    println("trackId: " + trackProps.trackId)
     */
 
     // factory is on channel 9
     if(statusProps.channelId == 8) {
         if(trackProps.controlTypeId == CNTL_SEND_A ||
            trackProps.controlTypeId == CNTL_SEND_B) {
-            track.getSend(track.controlTypeId).set(data2,128);
+            track.getSend(trackProps.controlTypeId).set(data2,128);
         }
         else if(trackProps.controlTypeId == CNTL_PAN) {
             track.getPan().set(data2,128);
